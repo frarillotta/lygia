@@ -1,0 +1,6 @@
+{
+    "glsl-canvas.textures": {
+        "1": "https://images.theconversation.com/files/317110/original/file-20200225-24690-12dudkb.jpg?ixlib=rb-1.1.0&q=45&auto=format&w=1000&fit=clip",
+        "2": "https://rawgit.com/actarian/plausible-brdf-shader/master/textures/noise/cloud-2.jpg",        
+    }
+}
