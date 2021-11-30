@@ -4,7 +4,7 @@
 
 #ifdef GL_ES
 precision mediump float;
-#endif 
+#endif
 
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
@@ -12,6 +12,7 @@ uniform float u_time;
 float PI = 3.14155925;
 
 #include "../space/ratio.glsl"
+#include "../generative/snoise.glsl"
 
 float sdSphere(vec3 p, float r) {
     return length(p)-r;
@@ -42,6 +43,17 @@ float sdBox( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+float sdBoxFrame( vec3 p, vec3 b, float e )
+{
+  p = abs(p  )-b;
+  vec3 q = abs(p+e)-e;
+  return min(min(
+      length(max(vec3(p.x,q.y,q.z),0.0))+min(max(p.x,max(q.y,q.z)),0.0),
+      length(max(vec3(q.x,p.y,q.z),0.0))+min(max(q.x,max(p.y,q.z)),0.0)),
+      length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
+}
+
+
 // polynomial smooth min (k = 0.1);
 float smin( float a, float b, float k )
 {
@@ -49,16 +61,25 @@ float smin( float a, float b, float k )
     return mix( b, a, h ) - k*h*(1.0-h);
 }
 
+vec3 opRep( vec3 p, vec3 c )
+{
+    return mod(p+0.5*c,c)-0.5*c;
+}
+float smax( float a, float b, float k )
+{
+    float h = max(k-abs(a-b),0.0);
+    return max(a, b) + h*h*0.25/k;
+}
 float sdf(vec3 p) {
-    // vec3 p1 = rotate(p, vec3(1.), .8);
-    vec3 p1 = rotate(p, vec3(1.), u_time/2.);
-    vec3 p2 = vec3(p1.x -.15, p1.y, p1.z);
-    float box = sdBox(p1, vec3(0.2));
-    float box2 = sdBox(p2, vec3(.2, .05, .3));
-    box = min(box, box2);
-    // float sphere = sdSphere(p - vec3(.5, .4908, 0.), 0.2);
+    vec3 p1 =  vec3(p.x + .15, p.y, p.z - u_time/10.);
+    // vec3 p1 = rotate(p, vec3(1.), u_time/2.);
+    vec3 r = opRep(p1, vec3(.30));
+    float box = sdBoxFrame(r, vec3(.03), .002);
+	float sphere = sdSphere(r, .02);
 
-    return box;
+    // box = max(box, -box2);
+    // box = smin(sphere, box, .7);
+    return smin(sphere, box, .0);
 }
 
 vec3 calcNormal( in vec3 p ) // for function f(p)
@@ -68,22 +89,23 @@ vec3 calcNormal( in vec3 p ) // for function f(p)
     return normalize( vec3(sdf(p+h.xyy) - sdf(p-h.xyy),
                            sdf(p+h.yxy) - sdf(p-h.yxy),
                            sdf(p+h.yyx) - sdf(p-h.yyx) ) );
-}
+} 
+
 
 #include "../filter/dither/dither8x8.glsl"
 
 void main() {
     vec2 st = gl_FragCoord.xy/u_resolution.xy;
     st = ratio(st, u_resolution);
-    vec3 color = vec3(0.);
+    vec3 color = vec3(.0);
 
     float dist = length(st - vec2(0.5));
-    vec3 bg = mix(vec3(0.), vec3(.3), dist);
+    vec3 bg = mix(vec3(0.0, 0.0, 0.0), vec3(0.), dist);
     vec3 camPos = vec3(0., 0, 3.);
-    vec3 ray = normalize(vec3(st - .5, -2.5));
+    vec3 ray = normalize(vec3(st - .5, -.5));
 
-    //pixelation
-    float grid = u_resolution.x/1.5;
+    // pixelation
+    float grid = u_resolution.x/1.9;
     vec3 ray_i = floor(ray * grid)/grid;
     ray = ray_i;
 
@@ -103,10 +125,9 @@ void main() {
 
     if (t < tMax) {
         vec3 pos = camPos + t*ray;
-        color = vec3(1.);
         vec3 normal = calcNormal(pos);
         color = normal;
-        float diff = dot(vec3(1.), normal);
+        float diff = dot(vec3(0.8863, 0.0745, 0.0745), normal);
         color = vec3(diff);
         float fresnel = pow(1. + dot(ray, normal), 1.);
         color = vec3(fresnel);
@@ -114,6 +135,7 @@ void main() {
     }
     color = vec3(dither8x8(gl_FragCoord.xy, color));
 
+    // color = color + vec3(st.x, st.y, 1.);
 
     gl_FragColor = vec4(color,1.0);
 }

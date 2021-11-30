@@ -4,7 +4,7 @@
 
 #ifdef GL_ES
 precision mediump float;
-#endif 
+#endif
 
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
@@ -12,6 +12,7 @@ uniform float u_time;
 float PI = 3.14155925;
 
 #include "../space/ratio.glsl"
+#include "../generative/pnoise.glsl"
 
 float sdSphere(vec3 p, float r) {
     return length(p)-r;
@@ -45,18 +46,21 @@ float sdBox( vec3 p, vec3 b )
 // polynomial smooth min (k = 0.1);
 float smin( float a, float b, float k )
 {
-    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1. );
+    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
     return mix( b, a, h ) - k*h*(1.0-h);
 }
 
 float sdf(vec3 p) {
-    // vec3 p1 = rotate(p, vec3(1.), .8);
-    vec3 p1 = rotate(p, vec3(1.), u_time/2.);
-    vec3 p2 = vec3(p1.x -.15, p1.y, p1.z);
-    float box = sdBox(p1, vec3(0.2));
-    float box2 = sdBox(p2, vec3(.2, .05, .3));
-    box = min(box, box2);
+    vec3 p1 = rotate(p, vec3(1.), u_time/3.);
+
+	float noise = pnoise(p1, vec3(.001));
+	
+	float sphere1 = sdSphere(clamp(vec3(noise), -.1, .1), 0.001);
+    
+    float box = smin(sdBox(p1, vec3(0.02)), sphere1, .2);
+
     // float sphere = sdSphere(p - vec3(.5, .4908, 0.), 0.2);
+	float sphere = sphere1;
 
     return box;
 }
@@ -79,13 +83,13 @@ void main() {
 
     float dist = length(st - vec2(0.5));
     vec3 bg = mix(vec3(0.), vec3(.3), dist);
-    vec3 camPos = vec3(0., 0, 3.);
-    vec3 ray = normalize(vec3(st - .5, -2.5));
+    vec3 camPos = vec3(0., 0., 3.);
+    vec3 ray = normalize(vec3(st - .5, -1.5));
 
     //pixelation
-    float grid = u_resolution.x/1.5;
+    float grid = u_resolution.x/3.;
     vec3 ray_i = floor(ray * grid)/grid;
-    ray = ray_i;
+    // ray = ray_i;
 
     vec3 rayPos = camPos;
     float t = 0.;
