@@ -4,7 +4,7 @@
 
 #ifdef GL_ES
 precision mediump float;
-#endif 
+#endif
 
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
@@ -42,23 +42,38 @@ float sdBox( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+float smax( float a, float b, float k )
+{
+    float h = max(k-abs(a-b),0.0);
+    return max(a, b) + h*h*0.25/k;
+}
+
+
 // polynomial smooth min (k = 0.1);
 float smin( float a, float b, float k )
 {
-    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1. );
+    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
     return mix( b, a, h ) - k*h*(1.0-h);
 }
 
-float sdf(vec3 p) {
-    // vec3 p1 = rotate(p, vec3(1.), .8);
-    vec3 p1 = rotate(p, vec3(1.), u_time/2.);
-    vec3 p2 = vec3(p1.x -.15, p1.y, p1.z);
-    float box = sdBox(p1, vec3(0.2));
-    float box2 = sdBox(p2, vec3(.2, .05, .3));
-    box = min(box, box2);
-    // float sphere = sdSphere(p - vec3(.5, .4908, 0.), 0.2);
+float sdTorus( vec3 p, vec2 t )
+{
+  vec2 q = vec2(length(p.xz)-t.x,p.y);
+  return length(q)-t.y;
+}
 
-    return box;
+float sdf(vec3 p) {
+    vec3 p1 = p / 1.5;
+    
+    float box = smin(sdBox(p1, vec3(0.2)), sdSphere(p, 0.2), .2);
+
+    float rotation = sin(u_time)/1.4;
+    
+    float rotation2 = cos(u_time)/1.4;
+    float sphere = sdSphere(vec3(p.x, p.y - sin(u_time), p.z), 0.05);
+
+    // return ;
+    return min(smax(box, -sphere, .35), sphere);
 }
 
 vec3 calcNormal( in vec3 p ) // for function f(p)
@@ -79,13 +94,13 @@ void main() {
 
     float dist = length(st - vec2(0.5));
     vec3 bg = mix(vec3(0.), vec3(.3), dist);
-    vec3 camPos = vec3(0., 0, 3.);
-    vec3 ray = normalize(vec3(st - .5, -2.5));
+    vec3 camPos = vec3(0.5, 0.5, 3.);
+    vec3 ray = normalize(vec3(st - .5, -1.5));
 
     //pixelation
-    float grid = u_resolution.x/1.5;
-    vec3 ray_i = floor(ray * grid)/grid;
-    ray = ray_i;
+    // float grid = u_resolution.x/2.3;
+    // vec3 ray_i = floor(ray * grid)/grid;
+    // ray = ray_i;
 
     vec3 rayPos = camPos;
     float t = 0.;
@@ -112,7 +127,7 @@ void main() {
         color = vec3(fresnel);
         color = mix(color, bg, -fresnel);
     }
-    color = vec3(dither8x8(gl_FragCoord.xy, color));
+    // color = vec3(dither8x8(gl_FragCoord.xy, color));
 
 
     gl_FragColor = vec4(color,1.0);
